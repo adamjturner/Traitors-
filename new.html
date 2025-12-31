@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traitors of the Castle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Lato', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        
+        h1, h2, h3, .gothic {
+            font-family: 'Cinzel', serif;
+        }
+
+        .gold-text {
+            color: #fbbf24;
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+        }
+
+        .red-text {
+            color: #f87171;
+            text-shadow: 0 0 10px rgba(248, 113, 113, 0.3);
+        }
+
+        .card-enter {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .traitor-bg {
+            background: radial-gradient(circle at center, #450a0a 0%, #0f172a 100%);
+        }
+        
+        .faithful-bg {
+            background: radial-gradient(circle at center, #064e3b 0%, #0f172a 100%);
+        }
+
+        /* Custom scrollbar for player lists */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- GAME CONTAINER -->
+    <div id="game-app" class="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden min-h-[600px] relative">
+        
+        <!-- HEADER -->
+        <div class="bg-slate-950 p-4 text-center border-b border-slate-800 flex justify-between items-center relative">
+             <div class="w-8"></div> <!-- Spacer for centering -->
+            <h1 class="text-xl font-bold tracking-wider text-slate-200 uppercase">Traitors <span class="text-[10px] normal-case text-slate-500 block">Castle Edition</span></h1>
+            <button onclick="toggleRules()" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white">
+                <i data-lucide="help-circle"></i>
+            </button>
+        </div>
+
+        <!-- CONTENT AREA -->
+        <div id="content" class="p-6 flex flex-col items-center justify-center min-h-[500px]">
+            <!-- Dynamic Content Injected Here -->
+        </div>
+
+        <!-- RULES MODAL -->
+        <div id="rules-modal" class="absolute inset-0 bg-slate-900/95 z-50 p-6 hidden overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl gothic text-yellow-500">How to Play</h2>
+                <button onclick="toggleRules()" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-6 text-sm text-slate-300">
+                <section>
+                    <h3 class="font-bold text-white text-lg mb-2">The Goal</h3>
+                    <ul class="list-disc pl-5 space-y-2">
+                        <li><strong class="text-green-400">The Faithful:</strong> You must identify and Banish all Traitors. You win if only Faithful remain.</li>
+                        <li><strong class="text-red-400">The Traitors:</strong> You must remain undetected and Murder the Faithful at night. You win if you equal or outnumber the Faithful.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3 class="font-bold text-white text-lg mb-2">Setup</h3>
+                    <p class="mb-2">Supports up to 20 players.</p>
+                    <ul class="list-disc pl-5 space-y-2">
+                         <li>4-6 Players: 1 Traitor</li>
+                         <li>7-9 Players: 2 Traitors</li>
+                         <li>10-13 Players: 3 Traitors</li>
+                         <li>14+ Players: 4 Traitors</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3 class="font-bold text-white text-lg mb-2">The Night Phase (Conspiracy)</h3>
+                    <p class="mb-2">Everyone handles the device to hide identities.</p>
+                    <ul class="list-disc pl-5 space-y-2">
+                        <li><strong>Faithful:</strong> See a sleeping screen.</li>
+                        <li><strong>Traitors:</strong> See a shared <strong>Log</strong>. You can see what other traitors voted for and leave notes.</li>
+                        <li><strong>Disagreement:</strong> If Traitors tie on a victim, the device must be passed around <strong>again</strong> until a consensus is reached.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3 class="font-bold text-white text-lg mb-2">The Loop</h3>
+                    <ol class="list-decimal pl-5 space-y-2">
+                        <li><strong>Free Talk:</strong> 5 mins to mingle/whisper.</li>
+                        <li><strong>Round Table:</strong> 3 mins to accuse publicly.</li>
+                        <li><strong>Voting:</strong> Everyone votes secretly on who to Banish.</li>
+                        <li><strong>Night:</strong> Traitors conspire and murder.</li>
+                    </ol>
+                </section>
+                
+                <button onclick="toggleRules()" class="w-full bg-slate-700 py-3 rounded font-bold mt-4 text-white">Close Rules</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- GAME STATE ---
+        const STATE = {
+            SETUP: 'SETUP',
+            ROLE_REVEAL_WARN: 'ROLE_REVEAL_WARN',
+            ROLE_REVEAL: 'ROLE_REVEAL',
+            MINGLE_BEFORE: 'MINGLE_BEFORE',
+            ROUND_TABLE_INTRO: 'ROUND_TABLE_INTRO',
+            VOTING_WARN: 'VOTING_WARN',
+            VOTING: 'VOTING',
+            BANISHMENT_RESULT: 'BANISHMENT_RESULT',
+            NIGHT_WARN: 'NIGHT_WARN', // Pass device to specific player
+            NIGHT_ACTION: 'NIGHT_ACTION', // Action for that player
+            NIGHT_UNDECIDED: 'NIGHT_UNDECIDED', // New state for tie-breaker loop
+            MORNING_RESULT: 'MORNING_RESULT',
+            GAME_OVER: 'GAME_OVER'
+        };
+
+        let currentState = STATE.SETUP;
+        let players = []; // { id, name, role, isDead }
+        let currentPlayerIndex = 0;
+        let votes = {}; // { targetId: count }
+        let voteHistory = []; // { voterName, targetName, round }
+        
+        // Night Specifics
+        let nightVotes = {}; // { targetId: count } used by traitors
+        let nightLog = []; // { author: "Traitor 1", msg: "..." }
+        let nightLoopCount = 0;
+        
+        let banishedPlayer = null;
+        let murderedPlayer = null;
+        let roundCount = 1;
+        let timerInterval; // Global timer ref
+
+        // --- DOM ELEMENTS ---
+        const contentDiv = document.getElementById('content');
+        const rulesModal = document.getElementById('rules-modal');
+
+        // --- ICONS (Lucide) ---
+        const icons = {
+            user: '<i data-lucide="user" class="w-6 h-6"></i>',
+            users: '<i data-lucide="users" class="w-6 h-6"></i>',
+            sword: '<i data-lucide="sword" class="w-12 h-12"></i>',
+            shield: '<i data-lucide="shield" class="w-12 h-12"></i>',
+            skull: '<i data-lucide="skull" class="w-12 h-12"></i>',
+            scroll: '<i data-lucide="scroll" class="w-6 h-6"></i>',
+            eye: '<i data-lucide="eye" class="w-6 h-6"></i>',
+            eyeOff: '<i data-lucide="eye-off" class="w-6 h-6"></i>',
+            moon: '<i data-lucide="moon" class="w-12 h-12 text-indigo-400"></i>',
+            crown: '<i data-lucide="crown" class="w-8 h-8 text-yellow-500"></i>',
+            message: '<i data-lucide="message-circle" class="w-6 h-6"></i>',
+            feather: '<i data-lucide="feather" class="w-5 h-5"></i>'
+        };
+
+        // --- GLOBAL UI FUNCTIONS ---
+        function toggleRules() {
+            rulesModal.classList.toggle('hidden');
+        }
+
+        // --- RENDER FUNCTIONS ---
+
+        function render() {
+            contentDiv.innerHTML = '';
+            
+            switch (currentState) {
+                case STATE.SETUP:
+                    renderSetup();
+                    break;
+                case STATE.ROLE_REVEAL_WARN:
+                    renderRoleRevealWarn();
+                    break;
+                case STATE.ROLE_REVEAL:
+                    renderRoleReveal();
+                    break;
+                case STATE.MINGLE_BEFORE:
+                    renderMingle('BEFORE');
+                    break;
+                case STATE.ROUND_TABLE_INTRO:
+                    renderRoundTableIntro();
+                    break;
+                case STATE.VOTING_WARN:
+                    renderVotingWarn();
+                    break;
+                case STATE.VOTING:
+                    renderVoting();
+                    break;
+                case STATE.BANISHMENT_RESULT:
+                    renderBanishmentResult();
+                    break;
+                case STATE.NIGHT_WARN:
+                    renderNightWarn();
+                    break;
+                case STATE.NIGHT_ACTION:
+                    renderNightAction();
+                    break;
+                case STATE.NIGHT_UNDECIDED:
+                    renderNightUndecided();
+                    break;
+                case STATE.MORNING_RESULT:
+                    renderMorningResult();
+                    break;
+                case STATE.GAME_OVER:
+                    renderGameOver();
+                    break;
+            }
+            lucide.createIcons();
+        }
+
+        // 1. SETUP
+        function renderSetup() {
+            contentDiv.innerHTML = `
+                <div class="w-full space-y-4 card-enter text-center">
+                    <div class="mb-6">
+                        ${icons.users}
+                        <h2 class="text-xl gothic mt-2">Enter Players</h2>
+                        <p class="text-slate-400 text-sm">Add 4-20 players to begin.</p>
+                    </div>
+                    
+                    <div id="player-list" class="space-y-2 mb-4 max-h-48 overflow-y-auto pr-2">
+                        ${players.map(p => `<div class="bg-slate-800 p-2 rounded flex justify-between items-center border border-slate-700"><span class="font-bold truncate max-w-[200px]">${p.name}</span><button onclick="removePlayer('${p.id}')" class="text-red-400 hover:text-red-300 px-2">✕</button></div>`).join('')}
+                    </div>
+
+                    <div class="flex gap-2">
+                        <input type="text" id="new-player-name" class="flex-1 bg-slate-800 border border-slate-600 rounded p-2 focus:outline-none focus:border-yellow-500" placeholder="Name..." onkeydown="if(event.key==='Enter') addPlayer()">
+                        <button onclick="addPlayer()" class="bg-slate-700 hover:bg-slate-600 px-4 rounded font-bold text-xl">+</button>
+                    </div>
+
+                    <div class="mt-8">
+                        <p class="text-xs text-slate-500 mb-2">${players.length} Players (Rec: 6-12)</p>
+                        <button onclick="startGame()" class="w-full bg-yellow-600 hover:bg-yellow-700 text-slate-950 font-bold py-3 rounded shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" ${players.length < 4 ? 'disabled' : ''}>Start Game</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addPlayer() {
+            const input = document.getElementById('new-player-name');
+            const name = input.value.trim();
+            if (name && players.length < 20) {
+                players.push({ id: crypto.randomUUID(), name: name, role: 'FAITHFUL', isDead: false });
+                input.value = '';
+                render();
+            }
+        }
+
+        function removePlayer(id) {
+            players = players.filter(p => p.id !== id);
+            render();
+        }
+
+        function startGame() {
+            if (players.length < 4) return;
+            
+            // Assign roles dynamically based on player count
+            let traitorCount = 1;
+            if (players.length >= 7) traitorCount = 2;
+            if (players.length >= 10) traitorCount = 3;
+            if (players.length >= 14) traitorCount = 4;
+            
+            let traitorsAssigned = 0;
+            
+            // Shuffle players for randomness
+            players.sort(() => Math.random() - 0.5);
+
+            for (let i = 0; i < players.length; i++) {
+                if (traitorsAssigned < traitorCount) {
+                    players[i].role = 'TRAITOR';
+                    traitorsAssigned++;
+                } else {
+                    players[i].role = 'FAITHFUL';
+                }
+            }
+
+            // Shuffle again to mask assignment order
+            players.sort(() => Math.random() - 0.5);
+
+            currentPlayerIndex = 0;
+            currentState = STATE.ROLE_REVEAL_WARN;
+            render();
+        }
+
+        // 2. ROLE REVEAL
+        function renderRoleRevealWarn() {
+            const player = players[currentPlayerIndex];
+            contentDiv.innerHTML = `
+                <div class="text-center space-y-6 card-enter">
+                    <div class="text-6xl mb-4">🤫</div>
+                    <h2 class="text-2xl gothic text-white">Pass Device to <br><span class="gold-text text-3xl">${player.name}</span></h2>
+                    <p class="text-slate-400">Keep your role secret.</p>
+                    <button onclick="revealRole()" class="w-full bg-slate-700 hover:bg-slate-600 py-3 rounded font-bold mt-8 border border-slate-500">I am ${player.name}</button>
+                </div>
+            `;
+        }
+
+        function revealRole() {
+            currentState = STATE.ROLE_REVEAL;
+            render();
+        }
+
+        function renderRoleReveal() {
+            const player = players[currentPlayerIndex];
+            const isTraitor = player.role === 'TRAITOR';
+            const traitors = players.filter(p => p.role === 'TRAITOR' && p.id !== player.id);
+            
+            contentDiv.innerHTML = `
+                <div class="text-center space-y-6 card-enter w-full ${isTraitor ? 'traitor-bg' : 'faithful-bg'} p-6 rounded-xl border border-white/10">
+                    <div class="flex justify-center text-white/90">
+                        ${isTraitor ? icons.sword : icons.shield}
+                    </div>
+                    
+                    <div>
+                        <p class="text-sm uppercase tracking-widest opacity-70">Your Role</p>
+                        <h2 class="text-3xl gothic font-bold ${isTraitor ? 'red-text' : 'text-green-400'}">${player.role}</h2>
+                    </div>
+
+                    <div class="text-sm text-slate-300 bg-black/30 p-4 rounded">
+                        ${isTraitor 
+                            ? `Your goal is to murder the Faithful. <br>Your partner(s): <span class="text-red-400 font-bold">${traitors.map(t => t.name).join(', ') || 'None (Solo)'}</span>` 
+                            : 'Your goal is to find and banish the Traitors. Trust no one.'}
+                    </div>
+
+                    <button onclick="nextRole()" class="w-full bg-white text-slate-900 hover:bg-slate-200 py-3 rounded font-bold mt-4">Hide & Continue</button>
+                </div>
+            `;
+        }
+
+        function nextRole() {
+            currentPlayerIndex++;
+            if (currentPlayerIndex >= players.length) {
+                // After roles, go to Mingle
+                startMingle();
+            } else {
+                currentState = STATE.ROLE_REVEAL_WARN;
+                render();
+            }
+        }
+
+        // 2.5 MINGLE PHASE
+        function startMingle() {
+            if (timerInterval) clearInterval(timerInterval);
+            currentState = STATE.MINGLE_BEFORE;
+            render();
+        }
+
+        function endMingle() {
+            if (timerInterval) clearInterval(timerInterval);
+            currentState = STATE.ROUND_TABLE_INTRO;
+            render();
+        }
+
+        function renderMingle() {
+            contentDiv.innerHTML = `
+                <div class="text-center space-y-6 card-enter w-full">
+                    <div class="flex justify-center text-indigo-400">${icons.message}</div>
+                    <h2 class="text-2xl gothic">Free Talk</h2>
+                    <p class="text-slate-400 text-sm">Disperse. Whisper in corners. Form alliances.<br>You have 5 minutes.</p>
+                    
+                    <div class="bg-indigo-900/20 p-6 rounded-lg border border-indigo-700/50">
+                        <div class="text-5xl font-mono text-white mb-2" id="timer">05:00</div>
+                        <div class="flex gap-2 justify-center">
+                            <button onclick="startTimer(300)" id="timer-btn" class="text-xs bg-slate-700 px-3 py-1 rounded hover:bg-slate-600">Start Timer</button>
+                        </div>
+                    </div>
+
+                    <button onclick="endMingle()" class="w-full bg-indigo-800 hover:bg-indigo-700 text-white border border-indigo-600 py-3 rounded font-bold shadow-lg">
+                        Gather at Round Table
+                    </button>
+                </div>
+            `;
+        }
+
+
+        // 3. ROUND TABLE
+        function renderRoundTableIntro() {
+            const activePlayers = players.filter(p => !p.isDead);
+            
+            contentDiv.innerHTML = `
+                <div class="text-center space-y-6 card-enter w-full">
+                    <div class="flex justify-center gold-text">${icons.users}</div>
+                    <h2 class="text-2xl gothic">The Round Table</h2>
+                    <p class="text-slate-400 text-sm">Discuss together. Accuse openly.<br>You have 3 minutes.</p>
+                    
+                    <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                        <div class="text-4xl font-mono text-white mb-2" id="timer">03:00</div>
+                        <div class="flex gap-2 justify-center">
+                            <button onclick="startTimer(180)" id="timer-btn" class="text-xs bg-slate-700 px-3 py-1 rounded hover:bg-slate-600">Start Timer</button>
+                        </div>
+                    </div>
+
+                    <div class="text-left bg-slate-800/50 p-4 rounded text-sm">
+                        <p class="mb-2 font-bold text-slate-400">Living Players:</p>
+                        <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                            ${activePlayers.map(p => `<span class="bg-slate-700 px-2 py-1 rounded text-xs">${p.name}</span>`).join('')}
+                        </div>
+                    </div>
+
+                    <button onclick="startVoting()" class="w-full bg-red-900 hover:bg-red-800 text-white border border-red-700 py-3 rounded font-bold shadow-lg animate-pulse">It is time to Vote</button>
+                </div>
+            `;
+        }
+        
+        // Generic Timer Logic
+        function startTimer(durationSeconds) {
+            const btn = document.getElementById('timer-btn');
+            if(btn.innerText === "Running...") return;
+            btn.innerText = "Running...";
+            
+            let timeLeft = durationSeconds;
+            const timerDisplay = document.getElementById('timer');
+            
+            if (timerInterval) clearInterval(timerInterval);
+            
+            updateDisplay(timeLeft, timerDisplay);
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+        
